@@ -1,28 +1,35 @@
-const uses = require("../data/uses-data");
+const db = require("../db/connection");
 
-const useExists = (req, res, next) => {
+const useExists = async (req, res, next) => {
     const { useId } = req.params;
-    const foundUse = uses.find((use) => use.id === Number(useId));
+
+    const foundUse = await db("uses").where({ id: useId }).first();
+
     if (foundUse) {
         res.locals.use = foundUse;
         return next();
     }
+
     next({
         status: 404,
         message: `Use id not found: ${useId}`,
     });
 }
 
-const destroy = (req, res) => {
+const destroy = async (req, res) => {
     const { useId } = req.params;
-    const index = uses.findIndex((use) => use.id === useId);
-    const deletedUses = uses.splice(index, 1);
+
+    await db("uses").where({ id: useId }).del();
+
     res.sendStatus(204);
 }
 
-const list = (req, res) => {
+const list = async (req, res) => {
     const { urlId } = req.params;
-    res.json({ data: uses.filter(urlId ? use => use.urlId == urlId : () => true) });
+
+    const uses = await db("uses").where({ urlId: urlId });
+
+    res.json({ data: uses });
 }
 
 const read = (req, res) => {

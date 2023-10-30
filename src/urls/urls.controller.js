@@ -1,65 +1,66 @@
-const urls = require("../data/urls-data");
-const uses = require("../data/uses-data");
-
-let lastUrlId = urls.reduce((maxId, url) => Math.max(maxId, url.id), 0);
+const db = require("../db/connection");
 
 const hasHref = (req, res, next) => {
     const { data: { href } = {} } = req.body;
 
     if (href) {
+        res.locals.href = href;
         return next();
     }
-    next({ 
+
+    next({
         status: 400, 
-        message: "An 'href' property is required." });
+        message: "An 'href' property is required.",
+    });
 }
 
-const urlExists = (req, res, next) => {
+const urlExists = async (req, res, next) => {
     const { urlId } = req.params;
-    const foundUrl = urls.find((url) => url.id === Number(urlId));
+    const foundUrl = await db("urls").where({ id: urlId }).first();
+
     if (foundUrl) {
         res.locals.url = foundUrl;
         return next();
     }
+
     next({
         status: 404,
         message: `Url id not found: ${urlId}`,
     });
 }
 
-const create = (req, res) => {
-    const { data: { href } = {} } = req.body;
-    const newUrl = {
-        id: ++lastUrlId,
-        href,
-    };
-    urls.push(newUrl);
+const create = async (req, res) => {
+    const href = res.locals.href;
+
+    const newUrl = await db("urls")
+        .insert({ href: href }, ["id", "href"]);
+
     res.status(201).json({ data: newUrl });
 }
 
-const list = (req, res) => {
+const list = async (req, res) => {
+    const urls = await db("urls");
+
     res.json({ data: urls });
 }
 
-const read = (req, res) => {
+const read = async (req, res) => {
     const url = res.locals.url;
-    const newUrlId = urls.length + 1;
-    uses.push({
-        id: newUrlId,
-        urlId: url.id,
-        time: Date.now(),
-    });
+
+    await db("uses").insert({ urlId: url.id, time: Date.now() });
+
     res.json({ data: url });
 }
 
-const update = (req, res) => {
+const update = async (req, res) => {
+    const href = res.locals.href;
     const url = res.locals.url;
-    const { data: { href } = {} } = req.body;
 
-    // Update the url
-    url.href = href;
+    const updatedUrl = await db("urls")
+        .where({ id: url.id })
+        .update({ href: href }, ["id", "href"]);
 
-    res.json({ data: url });
+    res.json({ data: updatedUrl });
 }
 
 module.exports = {
